@@ -7,8 +7,8 @@
 # 
 
 from launch import LaunchDescription
-from launch.actions import RegisterEventHandler, TimerAction, DeclareLaunchArgument, OpaqueFunction, SetLaunchConfiguration, LogInfo
-from launch.event_handlers import OnProcessStart
+from launch.actions import RegisterEventHandler, TimerAction, DeclareLaunchArgument, OpaqueFunction, SetLaunchConfiguration, LogInfo, ExecuteProcess
+from launch.event_handlers import OnProcessStart, OnShutdown
 from launch_ros.actions import Node
 from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, LaunchConfiguration, PythonExpression
 from launch_ros.substitutions import FindPackageShare
@@ -17,6 +17,8 @@ from dsr_mujoco.dsr_merge_gripper import merge_gripper
 from dsr_mujoco.dsr_build_scene import build_scene
 from launch.conditions import IfCondition
 from pathlib import Path
+import yaml
+import tempfile
 
 ARGUMENTS = [
         DeclareLaunchArgument('name',  default_value = '',     description = 'NAME_SPACE'     ),
@@ -111,19 +113,55 @@ def prepare_mjcf_files_for_mujoco(context, *args, **kwargs):
 def prepare_controller_config(context, *args, **kwargs):
     dsr_mujoco_share = Path(get_package_share_directory('dsr_mujoco'))
     gripper_arg = context.launch_configurations['gripper']
-    
-    controller_config_file: Path
+    model_arg = context.launch_configurations['model']
+
+    controller_config_path: Path
     if gripper_arg.lower() != 'none':
-        controller_config_file = dsr_mujoco_share / 'config' / f"dsr_mujoco_controller_with_{gripper_arg}.yaml"
-        if not controller_config_file.exists():
+        controller_config_path = dsr_mujoco_share / 'config' / f"dsr_mujoco_controller_with_{gripper_arg}.yaml"
+        if not controller_config_path.exists():
             raise FileNotFoundError(f"Controller YAML for gripper '{gripper_arg}' not found.")
     else:
-        # Gripper is 'none', use the default controller YAML
-        controller_config_file = dsr_mujoco_share / 'config' / "dsr_mujoco_controller.yaml"
+        controller_config_path = dsr_mujoco_share / 'config' / "dsr_mujoco_controller.yaml"
+
+    if model_arg != 'p3020':
+        return [
+            SetLaunchConfiguration("controller_param_file", str(controller_config_path)),
+            LogInfo(msg=f"Controller config: {controller_config_path}"),
+        ]
+
+    # If model is p3020', change the controller config
+    LogInfo(msg="Model is 'p3020'. Modifying controller config to remove joint_4.").execute(context)
     
+    with open(controller_config_path, 'r') as f:
+        controller_params = yaml.safe_load(f)
+
+    try:
+        joints_list = controller_params['/**']['dsr_position_controller']['ros__parameters']['joints']
+        if 'joint_4' in joints_list:
+            joints_list.remove('joint_4')
+    except KeyError as e:
+        raise RuntimeError(f"Could not find key {e} in controller YAML to remove joint_4.")
+
+    # Create a temporary file to store the modified configuration
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.yaml', prefix='p3020_controller_') as temp_f:
+        yaml.dump(controller_params, temp_f)
+        temp_config_path = temp_f.name
+
+    # Clean up the temporary file on shutdown
+    cleanup_action = RegisterEventHandler(
+        OnShutdown(
+            on_shutdown=[
+                LogInfo(msg=f"Cleaning up temporary config file: {temp_config_path}"),
+                ExecuteProcess(cmd=['rm', temp_config_path])
+            ]
+        )
+    )
+
+    # Return actions to set the launch configuration to the new temp file and register the cleanup
     return [
-        SetLaunchConfiguration("controller_param_file",  str(controller_config_file)),
-        LogInfo(msg=f"Controller config: {controller_config_file}"),
+        SetLaunchConfiguration("controller_param_file", temp_config_path),
+        LogInfo(msg=f"Using temporary controller config for p3020: {temp_config_path}"),
+        cleanup_action,
     ]
 
 def generate_launch_description():
