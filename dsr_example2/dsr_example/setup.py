@@ -22,7 +22,11 @@ setup(
         'console_scripts': [
                 'dance = dsr_example.demo.dance_m1013:main',
                 'single_robot_simple = dsr_example.simple.single_robot_simple:main',
+                'single_robot_simple_3 = dsr_example.simple.single_robot_simple_3:main',
+                'single_robot_simple_4 = dsr_example.simple.single_robot_simple_4:main',
+                'single_robot_simple_5 = dsr_example.simple.single_robot_simple_5:main',                
                 'slope_demo = dsr_example.demo.slope_demo:main',
+                'pick_test = dsr_example.demo.pick_test:main',
         ],
     },
 )
