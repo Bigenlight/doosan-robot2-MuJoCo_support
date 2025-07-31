@@ -1,6 +1,7 @@
 import rclpy
 import os
 import sys
+import time
 
 from rclpy.logging import get_logger
 
@@ -23,20 +24,56 @@ def main(args=None):
 
         try:
                 from DSR_ROBOT2 import print_ext_result, movej, movejx, movesj, movesx, movel, movec, move_periodic, move_spiral, moveb, set_velx, set_accx, set_robot_mode
-                from DSR_ROBOT2 import posj, posx, posb
+                from DSR_ROBOT2 import posj, posx, posb, ROBOT_MODE_MANUAL
                 from DSR_ROBOT2 import DR_LINE, DR_CIRCLE, DR_BASE, DR_TOOL, DR_AXIS_X, DR_AXIS_Z, DR_MV_MOD_ABS, ROBOT_MODE_AUTONOMOUS
+                # Import tool management functions
+                from DSR_ROBOT2 import add_tool, del_tool, get_tool, set_tool
                 # print_result("Import DSR_ROBOT2 Success!")
         except ImportError as e:
                 print(f"Error importing DSR_ROBOT2 : {e}")
                 return
+
+        r = set_robot_mode(ROBOT_MODE_MANUAL)
+        print(f"Set robot mode: {r}")
+        time.sleep(0.5)
         
-        set_robot_mode(ROBOT_MODE_AUTONOMOUS)
+        # Tool management testing
+        print("=== Tool Management Testing ===")
+        
+        # Test 1: Create a new tool
+        tool_name = "tool#1"
+        tool_weight = 2.5
+        tool_cog = [10.0, 10.0, 10.0]
+        tool_inertia = [0.1, 0.1, 0.1, 0.0, 0.0, 0.0] 
 
-        set_velx(30, 20)    # set global task speed : 30(mm/sec), 20(deg/sec)
-        set_accx(60, 40)    # set global task speed : 60(mm/sec2), 40(deg/sec2)
+        print(f"Creating tool: {tool_name}")
+        result = add_tool(tool_name, tool_weight, tool_cog, tool_inertia)
+        if result == 0:
+                print(f"Tool '{tool_name}' created successfully")
+        else:
+                print(f"Failed to create tool '{tool_name}'")
+        
+        # Test 2: Get current tool (should be empty initially)
+        current_tool = get_tool()
+        print(f"Current tool before setting: '{current_tool}'")
 
-        velx = [50, 50]
-        accx = [100, 100]
+        # Test 3: Set the created tool as current tool
+        print(f"Setting tool: {tool_name}")
+        result = set_tool(tool_name)
+        if result == 0:
+                print(f"Tool '{tool_name}' set successfully")
+        else:
+                print(f"Failed to set tool '{tool_name}'")
+           
+        # Test 4: Get current tool again (should show our tool)
+        current_tool = get_tool()
+        print(f"Current tool after setting: '{current_tool}'")
+
+        r = set_robot_mode(ROBOT_MODE_AUTONOMOUS)
+        print(f"Set robot mode: {r}")
+
+        # Add transition time as mentioned in the documentation
+        time.sleep(1)
 
         p1= posj(0,0,0,0,0,0)                    #joint
         print(p1)
@@ -84,26 +121,51 @@ def main(args=None):
         seg16 = posb(DR_CIRCLE, X1d, X1d2, radius=23)
         b_list1 = [seg11, seg12, seg14, seg15, seg16]
 
-        while rclpy.ok():
+        # Main robot movement loop
+        loop_count = 0
+        max_loops = 1
+        
+        while rclpy.ok() and loop_count < max_loops:
+                print(f"=== Movement Loop {loop_count + 1} ===")
+                
+                # Check current tool before movement
+                current_tool = get_tool()
+                print(f"Current tool during movement: '{current_tool}'")
+                
                 movej(p2, vel=100, acc=100)
-
-                # movejx(x1, vel=30, acc=60, sol=0)
-
-                # movel(x2, velx, accx)
-
-                # movec(c1, c2, velx, accx)
-
-                # movesj(qlist, vel=100, acc=100)
-
-                # movesx(xlist, vel=100, acc=100)
-
-                # move_spiral(rev=9.5,rmax=20.0,lmax=50.0,time=20.0,axis=DR_AXIS_Z,ref=DR_TOOL)
+                time.sleep(1)
                 
-                # move_periodic(amp =[10,0,0,0,30,0], period=1.0, atime=0.2, repeat=5, ref=DR_TOOL)
-                
-                # moveb(b_list1, vel=150, acc=250, ref=DR_BASE, mod=DR_MV_MOD_ABS)
-
                 movej(p1, vel=100, acc=100)
+                time.sleep(1)
+                
+                loop_count += 1
+
+        # Test 5: Clean up - Reset tool to empty and delete the created tool
+        print("=== Cleaning up tools ===")
+        r = set_robot_mode(ROBOT_MODE_MANUAL)
+        print(f"Set robot mode: {r}")
+
+        # Reset current tool to empty
+        print("Resetting current tool to empty")
+        result = set_tool("")
+        if result == 0:
+                print("Current tool reset successfully")
+        else:
+                print("Failed to reset current tool")
+        
+        time.sleep(1)
+        
+        # Verify current tool is empty
+        current_tool = get_tool()
+        print(f"Current tool after reset: '{current_tool}'")
+        
+        # Delete the created tool
+        print(f"Deleting tool: {tool_name}")
+        result = del_tool(tool_name)
+        if result == 0:
+                print(f"Tool '{tool_name}' deleted successfully")
+        else:
+                print(f"Failed to delete tool '{tool_name}'")
 
         print('good bye!')
         rclpy.shutdown()
