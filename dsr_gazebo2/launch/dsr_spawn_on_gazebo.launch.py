@@ -50,31 +50,36 @@ def generate_launch_description():
         launch_arguments={"gz_args": " -r -v 3 empty.sdf"}.items(),
     )
 
-    gz_spawn_entity = Node(
-        package="ros_gz_sim",
-        executable="create",
-        output="screen",
-        namespace=PathJoinSubstitution([LaunchConfiguration('name'), "gz"]),
-        arguments=[
-            "-topic",
-            "robot_description",
-            "-name",
-            LaunchConfiguration('model'),
-            "-allow_renaming",
-            "true",
-            "-x",
-            LaunchConfiguration('x'),
-            "-y",
-            LaunchConfiguration('y'),
-            "-z",
-            LaunchConfiguration('z'),
-            "-R",
-            LaunchConfiguration('R'),
-            "-P",
-            LaunchConfiguration('P'),
-            "-Y",
-            LaunchConfiguration('Y'),
-        ],
+    gz_spawn_entity = TimerAction(
+        period=7.0,  # Wait for 7 seconds
+        actions=[
+            Node(
+                package="ros_gz_sim",
+                executable="create",
+                output="screen",
+                namespace=PathJoinSubstitution([LaunchConfiguration('name'), "gz"]),
+                arguments=[
+                    "-topic",
+                    "robot_description",
+                    "-name",
+                    LaunchConfiguration('model'),
+                    "-allow_renaming",
+                    "true",
+                    "-x",
+                    LaunchConfiguration('x'),
+                    "-y",
+                    LaunchConfiguration('y'),
+                    "-z",
+                    LaunchConfiguration('z'),
+                    "-R",
+                    LaunchConfiguration('R'),
+                    "-P",
+                    LaunchConfiguration('P'),
+                    "-Y",
+                    LaunchConfiguration('Y'),
+                ],
+            )
+        ]
     )
 
     # Get URDF via xacro

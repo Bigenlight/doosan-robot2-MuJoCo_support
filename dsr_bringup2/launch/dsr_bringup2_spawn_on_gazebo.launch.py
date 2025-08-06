@@ -70,6 +70,12 @@ def generate_launch_description():
                 ]
             ),
             ".urdf.xacro",
+            " name:=", LaunchConfiguration('name'),
+            " host:=", LaunchConfiguration('host'),
+            " rt_host:=", LaunchConfiguration('rt_host'),
+            " port:=", LaunchConfiguration('port'),
+            " mode:=", LaunchConfiguration('mode'),
+            " model:=", LaunchConfiguration('model'),
         ]
     )
 
