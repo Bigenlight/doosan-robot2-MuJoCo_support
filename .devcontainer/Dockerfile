@@ -39,9 +39,10 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-ros2-controllers \
     ros-jazzy-gazebo-msgs \
     ros-jazzy-moveit-msgs \
-    ros-jazzy-ros-gz-sim \
     ros-jazzy-moveit-configs-utils \
     ros-jazzy-moveit-ros-move-group \
+    ros-jazzy-ros-gz \
+    ros-jazzy-gz-ros2-control \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker for emulator
@@ -60,7 +61,10 @@ RUN apt-get update && apt-get install -y \
 RUN usermod -aG docker $USERNAME || true
 
 # Setup environment
-RUN echo "source /opt/ros/jazzy/setup.bash" >> /home/$USERNAME/.bashrc \
+# MODIFICATION: Add sourcing for Gazebo Garden to root's bashrc
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /root/.bashrc \
+    && echo "source /usr/share/gz/gz-garden/setup.sh" >> /root/.bashrc \
+    && echo "source /opt/ros/jazzy/setup.bash" >> /home/$USERNAME/.bashrc \
     && echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/$USERNAME/.bashrc \
     && chown -R $USER_UID:$USER_GID /home/$USERNAME
 
